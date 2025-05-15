@@ -33,7 +33,7 @@ def graph_clustering( A, n_clusters, variant = 'bm' ):
         return spectralClustering_bm( A , n_clusters )
     
     elif variant == 'dcbm':
-        if n <= 10000:
+        if n <= 15000:
             return spectralClustering_dcbm(A, n_clusters, version = 'full')
         else:
             return spectralClustering_dcbm(A, n_clusters, version ='reduced' )
