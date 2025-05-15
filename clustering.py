@@ -131,7 +131,7 @@ def spectralClustering_dcbm( A , n_clusters, version ='full' ):
         if np.linalg.norm( hatP[i,:], ord = 1) != 0:
             hatP_rowNormalized[i,:] = hatP[i,:] / np.linalg.norm( hatP[i,:], ord = 1)
         
-    z = KMeans(n_clusters = n_clusters, n_init = 'auto', max_iter = max(300, n) ).fit_predict( hatP_rowNormalized ) + np.ones( n )        
+    z = KMeans(n_clusters = n_clusters, n_init = 'auto' ).fit_predict( hatP_rowNormalized ) + np.ones( n )        
     
     return z.astype(int) 
 
@@ -157,9 +157,13 @@ def spectralClustering_pabm( A, n_clusters, version = 'subspace', number_eigenve
         number_eigenvectors = n_clusters * n_clusters
     elif not isinstance(number_eigenvectors, int):
         number_eigenvectors = n_clusters * n_clusters
+    print( 'We will use ', number_eigenvectors, ' eigenvectors.' )
         
     vals, vecs = sp.sparse.linalg.eigsh( A.astype(float), k = number_eigenvectors, which = 'LM' )
     
+    if n > 15000 and version == 'subspace':
+        print( 'ElasticNetSubspaceClustering  may take too long for large dataset. We use subspace SparseSubspaceClusteringOMP instead.' )
+        version = 'subspace-omp'
     
     if version == 'spherical':
         hatP = vecs @ np.diag( vals ) @ vecs.T
@@ -180,7 +184,7 @@ def spectralClustering_pabm( A, n_clusters, version = 'subspace', number_eigenve
     elif version == 'subspace':
         #model_ensc = selfrepresentation.ElasticNetSubspaceClustering(n_clusters=10,affinity='nearest_neighbors',algorithm='spams',active_support=True,gamma=200,tau=0.9)
         #model = selfrepresentation.ElasticNetSubspaceClustering( n_clusters = n_clusters ,algorithm = 'lasso_lars',gamma=50 ).fit( vecs @ np.diag( vals ) @ vecs.T )
-        model = selfrepresentation.ElasticNetSubspaceClustering( n_clusters = n_clusters ,algorithm = 'lasso_lars',gamma=50, n_nonzero=10 ).fit( vecs @ np.diag( vals ) )
+        model = selfrepresentation.ElasticNetSubspaceClustering( n_clusters = n_clusters ,algorithm = 'lasso_lars',gamma=50 ).fit( vecs @ np.diag( vals ) )
         z = model.labels_ + np.ones( n )
 
     elif version == 'subspace-omp':

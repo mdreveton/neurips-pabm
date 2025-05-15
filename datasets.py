@@ -10,6 +10,8 @@ import pandas as pd
 import numpy as np
 import graphlearning as gl
 
+from random import shuffle 
+
 import sklearn as sklearn
 from sklearn.decomposition import PCA
 import time
@@ -49,8 +51,8 @@ def getGraphLearningDatasets( dataset_name, metric = 'vae', n = 'all' ):
         if dataset_name == 'cifar10':
             metric = 'simclr'
         else:
-            #metric = 'vae'
-            metric = 'vae_old' #This is to use the same embedding as in their original ICML paper. Somehow the new embedding raise issues when computing k-nearest neighborhood with annoy 
+            metric = 'vae'
+            #metric = 'vae_old' #This is to use the same embedding as in their original ICML paper. Somehow the new embedding raise issues when computing k-nearest neighborhood with annoy 
 
     
     data, labels = gl.datasets.load( dataset_name, metric = metric )
@@ -58,6 +60,10 @@ def getGraphLearningDatasets( dataset_name, metric = 'vae', n = 'all' ):
         n = data.shape[0]
     else:
         indices_kept = [ i for i in range( n ) ]
+        #indices_kept = [ i for i in range( data.shape[0] ) ]
+        #shuffle( indices_kept )
+        #indices_kept[:n]
+        
         
         labels = labels[ indices_kept ]
         data = data[ indices_kept, : ]

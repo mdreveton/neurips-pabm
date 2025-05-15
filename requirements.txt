@@ -1,0 +1,10 @@
+graphlearning==1.5.3
+annoy==1.17.3
+networkx==3.4.2
+pandas==2.2.3
+scipy==1.12.0
+numpy==1.26.4
+matplotlib==3.10.3
+tqdm==4.67.1
+scikit_learn==1.6.1
+setuptools==78.1.1
