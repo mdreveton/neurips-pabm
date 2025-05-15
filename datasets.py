@@ -49,7 +49,9 @@ def getGraphLearningDatasets( dataset_name, metric = 'vae', n = 'all' ):
         if dataset_name == 'cifar10':
             metric = 'simclr'
         else:
-            metric = 'vae'
+            #metric = 'vae'
+            metric = 'vae_old' #This is to use the same embedding as in their original ICML paper. Somehow the new embedding raise issues when computing k-nearest neighborhood with annoy 
+
     
     data, labels = gl.datasets.load( dataset_name, metric = metric )
     if n == 'all' or n > data.shape[0]:
@@ -60,15 +62,16 @@ def getGraphLearningDatasets( dataset_name, metric = 'vae', n = 'all' ):
         labels = labels[ indices_kept ]
         data = data[ indices_kept, : ]
         
-    n_clusters = len( set(labels) )
     labels = labels + np.ones( n )
     labels = labels.astype( int )
 
 
-    W = gl.weightmatrix.knn( data, k = 10 )
-
+    W = gl.weightmatrix.knn( data, k = 10, kernel = 'distance' )
     A = W.copy()
     A.data[ A.data > 0 ] = 1
+    
+    #A = sklearn.neighbors.kneighbors_graph( data, 10, mode = 'connectivity' )
+
     
     return A, labels.tolist( )
 

@@ -4,7 +4,6 @@
 Created on Mon Aug 19 12:03:41 2024
 """
 
-import networkx as nx
 import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
@@ -63,7 +62,7 @@ nAverage = 10
 xi_range = [ 0, 0.2, 0.4, 0.6, 0.8, 1 ]
 c = 0.8
 
-results_mean, results_std = runScenario_xi( scenario, n, sizes, edge_density, xi_range, c, nAverage = 10, metric = 'accuracy' , homogeneous = True )
+results_mean, results_std = runScenario_xi( scenario, n, sizes, edge_density, xi_range, c, nAverage = nAverage, metric = 'accuracy' , homogeneous = True )
 
 fileName = str(scenario) + '_xi' + '_n_' + str(n) + '_k_' + str(n_clusters) + '_density_' + str(edge_density) + '_nAverage_' + str(nAverage) + '.pdf'
 plotFigure( xi_range, results_mean, accuracy_err = results_std, methods = [ 'sbm', 'dcbm', 'pabm', 'osc'], 
@@ -77,7 +76,7 @@ plotFigure( xi_range, results_mean, accuracy_err = results_std, methods = [ 'sbm
 # HETEROGENEOUS SCENARIOS
 # =============================================================================
 
-scenario = 'exponential'
+scenario = 'pareto' #choices: pareto, exponential, lognormal
 
 n = 2000
 n_clusters = 5
@@ -91,6 +90,7 @@ edge_density = 0.05
 
 xi_range = [ 0,0.2,0.4,0.6,0.8,1 ]
 xi_range = np.linspace(0, 1 , 11)
+xi_range[0] = 0.01 #To avoid problem with disconnected graphs
 c = 0.5
 
 results_mean, results_std = runScenario_xi( scenario, n, sizes, edge_density, xi_range, c, nAverage = nAverage, metric = 'accuracy' , homogeneous = False )

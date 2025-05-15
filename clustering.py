@@ -10,7 +10,6 @@ from sklearn.cluster import KMeans, SpectralClustering
 
 import utils as utils
 import selfrepresentation as selfrepresentation
-import rankInference as rankInference
 
 
 from tqdm import tqdm
@@ -34,16 +33,19 @@ def graph_clustering( A, n_clusters, variant = 'bm' ):
         return spectralClustering_bm( A , n_clusters )
     
     elif variant == 'dcbm':
-        return spectralClustering_dcbm(A, n_clusters)
+        if n <= 10000:
+            return spectralClustering_dcbm(A, n_clusters, version = 'full')
+        else:
+            return spectralClustering_dcbm(A, n_clusters, version ='reduced' )
     
     elif variant == 'pabm' or variant == 'pabm-ksquared':
-        return spectralClustering_pabm( A, n_clusters, infer_rank = n_clusters * n_clusters )
+        return spectralClustering_pabm( A, n_clusters, number_eigenvectors = n_clusters * n_clusters )
 
     elif variant == 'pabm-k':
-        return spectralClustering_pabm( A, n_clusters, infer_rank = n_clusters )
+        return spectralClustering_pabm( A, n_clusters, number_eigenvectors = n_clusters )
 
     elif variant == 'pabm-2k':
-        return spectralClustering_pabm( A, n_clusters, infer_rank = 2 * n_clusters )
+        return spectralClustering_pabm( A, n_clusters, number_eigenvectors = 2 * n_clusters )
 
         
     elif variant == 'osc':
@@ -88,7 +90,7 @@ def spectralClustering_bm( A , n_clusters ):
     return z.astype(int) 
 
 
-def spectralClustering_dcbm( A , n_clusters ):
+def spectralClustering_dcbm( A , n_clusters, version ='full' ):
     """ Perform spectral clustering for a DCBM
     Parameters
     ----------
@@ -96,6 +98,17 @@ def spectralClustering_dcbm( A , n_clusters ):
         Adjacency matrix of a graph.
     n_clusters : int
         Number of clusters.
+        
+    version : optional
+        full: Algorithm 1 in  
+            Community detection in degree-corrected block models
+            Chao Gao, Zongming Ma, Anderson Y. Zhang, Harrison H. Zhou
+            Ann. Statist. 46(5): 2153-2185 (October 2018). DOI: 10.1214/17-AOS1615
+        
+        reduced: Another version of normalization of the embedding
+        
+    The full version has O(n^2) space complexity and thus is inadapted to large (say n above 10,000) graphs.
+
 
     Returns
     -------
@@ -105,18 +118,25 @@ def spectralClustering_dcbm( A , n_clusters ):
     n = A.shape[0]
     vals, vecs = sp.sparse.linalg.eigsh( A.astype(float), k = n_clusters, which = 'LM' )
 
-    hatP = vecs @ np.diag( vals ) @ vecs.T
+    if version == 'full':
+        hatP = vecs @ np.diag( vals ) @ vecs.T
+    elif version == 'reduced':
+        hatP = vecs @ np.diag( vals )
+    else:
+        raise TypeError('The dcbm version is not implemented. I will run the full version.' )
+        hatP = vecs @ np.diag( vals ) @ vecs.T
+    
     hatP_rowNormalized = hatP
     for i in range( n ):
         if np.linalg.norm( hatP[i,:], ord = 1) != 0:
             hatP_rowNormalized[i,:] = hatP[i,:] / np.linalg.norm( hatP[i,:], ord = 1)
-    
-    z = KMeans(n_clusters = n_clusters, n_init = 'auto', max_iter = max(300, n) ).fit_predict( hatP_rowNormalized ) + np.ones( n )
+        
+    z = KMeans(n_clusters = n_clusters, n_init = 'auto', max_iter = max(300, n) ).fit_predict( hatP_rowNormalized ) + np.ones( n )        
     
     return z.astype(int) 
 
 
-def spectralClustering_pabm( A, n_clusters, version = 'subspace', infer_rank = False ):
+def spectralClustering_pabm( A, n_clusters, version = 'subspace', number_eigenvectors = 'k-squared' ):
     """ Perform spectral clustering for a PABM
     Parameters
     ----------
@@ -131,50 +151,14 @@ def spectralClustering_pabm( A, n_clusters, version = 'subspace', infer_rank = F
         entries z_i denotes the cluster of vertex i.
     """
     
-    n = A.shape[0]
-
-    """
-    BELOW IS THE OLD METHOD BY THRESHOLDING
-    vals, vecs = sp.sparse.linalg.eigsh( A.astype(float), k = n_clusters * n_clusters, which = 'BE' )
+    n = A.shape[0]    
     
-    density = np.sum(A)/(n**2)
-    threshold_eigenvalue = np.sqrt( n * density ) #* np.log( n * density )
-    vals_ = vals[ np.abs(vals) > threshold_eigenvalue ]
-    vecs_ = vecs[ :, np.abs(vals) > threshold_eigenvalue ]
-    #print( len(vals_) )
-    """
-    
-    if infer_rank == False:
-        rank = n_clusters * n_clusters 
+    if number_eigenvectors == 'k-squared':
+        number_eigenvectors = n_clusters * n_clusters
+    elif not isinstance(number_eigenvectors, int):
+        number_eigenvectors = n_clusters * n_clusters
         
-    elif isinstance( infer_rank, int ):
-        rank = infer_rank
-        
-    elif infer_rank == 'eigengap':
-        vals_, vecs_ = sp.sparse.linalg.eigsh( A.astype(float), k = n_clusters * n_clusters, which = 'LM' )
-        density = np.sum(A)/(n**2)
-        threshold_eigenvalue = np.sqrt( n * density ) #* np.log( n * density )
-        vals = vals_[ np.abs(vals_) > threshold_eigenvalue ]
-        vecs = vecs_[ :, np.abs(vals_) > threshold_eigenvalue ]
-        print( 'The infered rank with the eigengap is ', len(vals) )
-        rank = len( vals )
-    
-    elif infer_rank == 'RIRS':
-        rank = rankInference.rank_inference( A, rank_min = n_clusters, rank_max = n_clusters * n_clusters )
-        print( 'The infered rank of A is ', rank )
-    
-    else:
-        rank = n_clusters * n_clusters
-    
-    
-    
-    vals, vecs = sp.sparse.linalg.eigsh( A.astype(float), k = rank, which = 'LM' )
-    
-    #if version == 'auto':
-    #    if n > 4000:
-    #        version = 'subspace'
-    #    else:
-    #        version = 'spherical'
+    vals, vecs = sp.sparse.linalg.eigsh( A.astype(float), k = number_eigenvectors, which = 'LM' )
     
     
     if version == 'spherical':
