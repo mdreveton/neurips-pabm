@@ -8,6 +8,10 @@ import numpy as np
 import scipy as sp
 from sklearn.cluster import KMeans, SpectralClustering
 
+from sklearn_extra.cluster import KMedoids
+
+from sklearn.metrics.pairwise import pairwise_distances
+
 import utils as utils
 import selfrepresentation as selfrepresentation
 
@@ -46,7 +50,6 @@ def graph_clustering( A, n_clusters, variant = 'bm' ):
 
     elif variant == 'pabm-2k':
         return spectralClustering_pabm( A, n_clusters, number_eigenvectors = 2 * n_clusters )
-
         
     elif variant == 'osc':
         return orthogonalSpectralClustering(A, n_clusters)
@@ -58,8 +61,8 @@ def graph_clustering( A, n_clusters, variant = 'bm' ):
         z = sc.fit_predict( A ) + np.ones( n )
         return z.astype( int )
 
-    
-    return TypeError( 'The algorithm is not implemented' )
+    else:
+        raise TypeError( 'The algorithm is not implemented' )
 
 
 
@@ -85,12 +88,12 @@ def spectralClustering_bm( A , n_clusters ):
     n = A.shape[0]
     vals, vecs = sp.sparse.linalg.eigsh( A.astype(float), k = n_clusters, which = 'LM' )
     hatP = vecs @ np.diag( vals ) #@ vecs.T #Note: k-means on vecs @ np.diag( vals ) and on vecs @ np.diag( vals ) @ vecs.T is equivalent, but faster using vecs @ np.diag( vals )  (n-by-n_clusters matrix instead of n-by-n)
-    z = KMeans( n_clusters = n_clusters, n_init = 'auto', max_iter = max(300, n ) ).fit_predict( hatP ) + np.ones( n ) #Somehow less iterations in k-means sometimes degrade the performance. But n_iter = n is way too much if n is large. 
-    
+    #z = KMeans( n_clusters = n_clusters, n_init = 'auto', max_iter = max(300, n ) ).fit_predict( hatP ) + np.ones( n ) #Somehow less iterations in k-means sometimes degrade the performance. But n_iter = n is way too much if n is large. 
+    z = KMeans( n_clusters = n_clusters, n_init = 'auto' ).fit_predict( hatP ) + np.ones( n ) 
     return z.astype(int) 
 
 
-def spectralClustering_dcbm( A , n_clusters, version ='full' ):
+def spectralClustering_dcbm( A , n_clusters, version ='full', embedding_clustering = 'kmeans' ):
     """ Perform spectral clustering for a DCBM
     Parameters
     ----------
@@ -105,10 +108,15 @@ def spectralClustering_dcbm( A , n_clusters, version ='full' ):
             Chao Gao, Zongming Ma, Anderson Y. Zhang, Harrison H. Zhou
             Ann. Statist. 46(5): 2153-2185 (October 2018). DOI: 10.1214/17-AOS1615
         
-        reduced: Another version of normalization of the embedding
-        
-    The full version has O(n^2) space complexity and thus is inadapted to large (say n above 10,000) graphs.
+        reduced: Another version of normalization of the embedding, closer to 
+            Consistency of spectral clustering in stochastic block models
+            Jing Lei, Alessandro Rinaldo
+            Ann. Statist. 43(1): 215-237 (February 2015). DOI: 10.1214/14-AOS1274
 
+    The full version has O(n^2) space complexity and thus is inadapted to large (say n above 10,000) graphs.
+    
+    embedding_clustering : optional
+        'kmeans' or 'kmedioid'
 
     Returns
     -------
@@ -130,13 +138,51 @@ def spectralClustering_dcbm( A , n_clusters, version ='full' ):
     for i in range( n ):
         if np.linalg.norm( hatP[i,:], ord = 1) != 0:
             hatP_rowNormalized[i,:] = hatP[i,:] / np.linalg.norm( hatP[i,:], ord = 1)
-        
-    z = KMeans(n_clusters = n_clusters, n_init = 'auto' ).fit_predict( hatP_rowNormalized ) + np.ones( n )        
+    
+    if embedding_clustering == 'kmeans':
+        print('I am using kmeans')
+        z = KMeans(n_clusters = n_clusters, n_init = 'auto' ).fit_predict( hatP_rowNormalized ) + np.ones( n )        
+    
+    elif embedding_clustering.lower() == 'kmedoids':
+        #distances = sp.spatial.distance_matrix( hatP_rowNormalized.T, hatP_rowNormalized.T, p=1 )
+        distances = pairwise_distances( hatP_rowNormalized, metric = 'l1' )
+        for i in range( n ):
+            distances[i,:] *= np.linalg.norm( hatP[i,:], ord = 1)
+
+        z = KMedoids(n_clusters=n_clusters, metric = 'precomputed').fit_predict( distances ) + np.ones( n )    
+    
+    else:
+        raise TypeError( 'This clustering method is not implemented' )
     
     return z.astype(int) 
 
+"""
+import sklearn_extra.cluster as sklearn_extra
+start = time.time()
+essai = pairwise_distances( hatP_rowNormalized, metric = 'l1' )
+print("distance computations took: %.2f ms" % ((time.time() - start)*1000))
 
-def spectralClustering_pabm( A, n_clusters, version = 'subspace', number_eigenvectors = 'k-squared' ):
+start = time.time()
+kmedoids = sklearn_extra.KMedoids(n_clusters=n_clusters, metric = 'precomputed').fit( essai )
+print("sklearn_extra took: %.2f ms" % ((time.time() - start)*1000))
+
+import kmedoids as kmedoids
+start = time.time()
+km = kmedoids.KMedoids(n_clusters, method='fasterpam')
+c = km.fit(essai)
+print("kmedioid took: %.2f ms" % ((time.time() - start)*1000))
+
+
+from pyclustering.cluster.kmedians import kmedians
+initial_medians = [[0.0, 0.1], [2.5, 0.7]]
+centers = KMeans(n_clusters = n_clusters ).fit( hatP_rowNormalized ).centers_
+kmedians_instance = kmedians(hatP_rowNormalized, centers)
+kmedians_instance.process()
+clusters = kmedians_instance.get_clusters()
+
+"""
+
+def spectralClustering_pabm( A, n_clusters, version = 'subspace', number_eigenvectors = 'k-squared', verbose = True ):
     """ Perform spectral clustering for a PABM
     Parameters
     ----------
@@ -157,7 +203,8 @@ def spectralClustering_pabm( A, n_clusters, version = 'subspace', number_eigenve
         number_eigenvectors = n_clusters * n_clusters
     elif not isinstance(number_eigenvectors, int):
         number_eigenvectors = n_clusters * n_clusters
-    print( 'We will use ', number_eigenvectors, ' eigenvectors.' )
+        if verbose:
+            print( 'We will use ', number_eigenvectors, ' eigenvectors.' )
         
     vals, vecs = sp.sparse.linalg.eigsh( A.astype(float), k = number_eigenvectors, which = 'LM' )
     

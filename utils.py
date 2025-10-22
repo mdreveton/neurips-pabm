@@ -14,6 +14,26 @@ from itertools import combinations
 from sklearn.metrics.cluster import adjusted_mutual_info_score, adjusted_rand_score
 from sklearn.metrics import matthews_corrcoef
 
+from tqdm import tqdm 
+
+
+def iteration( iterable, verbose = False ):
+    
+    if verbose:
+        return tqdm( iterable )
+    else:
+        return iterable 
+
+
+
+def generate_labels( sizes ):
+    n_clusters = len( sizes )
+    labels_true = [ ]
+    for community in range( n_clusters ):
+        labels_true = labels_true + [ community+1 for i in range( sizes[community] ) ]
+    labels_true = np.array( labels_true, dtype = int )
+
+    return labels_true 
 
 
 def generateBernoulliAdjacency( P ):
@@ -22,8 +42,9 @@ def generateBernoulliAdjacency( P ):
         for j in range( i ):
             A[i,j] = np.random.binomial( 1, P[i,j] )
             A[j,i] = A[i,j]
-    G = nx.from_numpy_array( A )
-    return nx.adjacency_matrix( G )
+    #G = nx.from_numpy_array( A )
+
+    return sp.sparse.csr_matrix( A, dtype=np.int8) #nx.adjacency_matrix( G ) 
 
 
 def generateP_of_homogeneousPABM( labels_true, p, q, theta_in, theta_out ):
@@ -41,25 +62,42 @@ def generateP_of_homogeneousPABM( labels_true, p, q, theta_in, theta_out ):
     return P
 
 
-def generateP_inhomogeneousPABM( sizes, Lambdas ):
+def generateP_homogeneousPABM( sizes, p, q, theta_in, theta_out ):
     n = sum( sizes )
-    n_clusters = len( sizes )
-        
-    labels_true = [ ]
-    for community in range( n_clusters ):
-        labels_true = labels_true + [ community+1 for i in range( sizes[community] ) ]
-    labels_true = np.array( labels_true, dtype = int )
+    labels_true = generate_labels( sizes )
 
     P = np.zeros( (n,n ) )
-    nodeListPerCommunity = obtain_community_lists( labels_true, n_clusters = len( sizes ) )
+    for i in range( n ):
+        for j in range( i + 1 ):
+            if labels_true[i] == labels_true[j]:
+                P[i,j] = min( p * theta_in[i] * theta_in[j], 1 )
+            else:
+                P[i,j] = min( q * theta_out[i] * theta_out[ j ], 1 )
+            P[j,i] = P[i,j]
+    
+    return P
+
+
+def generateP_inhomogeneousPABM( sizes, rateMatrix, Lambdas ):
+    n = sum( sizes )
+    n_clusters = len( sizes )
+    labels_true = generate_labels( sizes )
+
+    P = np.zeros( (n,n ) )
+    nodeListPerCommunity = obtain_community_lists( labels_true, n_clusters = n_clusters )
     
     for a in range( n_clusters ):
         for b in range( n_clusters ):
-            dummy = np.array( [ Lambdas[ a ] [ b ] ] ).T #makes an array of size n_a times 1 where n_a is the number of nodes in cluster a
-            P[ np.ix_( nodeListPerCommunity[a] , nodeListPerCommunity[b] ) ] = dummy @ dummy.T 
+            dummy1 = np.array( [ Lambdas[ a ] [ b ] ] ).T #makes an array of size n_a times 1 where n_a is the number of nodes in cluster a
+            dummy2 = np.array( [ Lambdas[ b ] [ a ] ] ).T
+            P[ np.ix_( nodeListPerCommunity[a] , nodeListPerCommunity[b] ) ] = dummy1 @ dummy2.T * rateMatrix[a,b]
     
     P = np.where( P > 1, 1, P )
     return P
+
+
+def generateHomoegeneousRateMatrix( n_clusters, p, q ):
+    return (p-q) * np.eye( n_clusters ) + q * np.ones( (n_clusters,n_clusters) )
 
 
 def degree_vector( A ):
@@ -72,7 +110,7 @@ def degree_matrix( A , power=1 ):
     ----------
     A : TYPE
         DESCRIPTION.
-    p : TYPE, optional
+    p : float, optional
         DESCRIPTION. The default is 1.
 
     Returns
