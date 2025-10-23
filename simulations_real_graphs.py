@@ -19,70 +19,20 @@ import thresholdedCosineSpectralClustering as tcsc
 import greedySubspaceProjectionClustering as gspc
 
 
-gml_datasets = [ 'citeseer', 'cora', 'liveJournal-top2', 'politicalBlogs' ]
-gl_datasets = [ 'mnist', 'fashionmnist', 'cifar10' ]
-
+__datasets__ = [ 'politicalBlogs', 'liveJournal-top2', 'citeseer', 'cora', 'mnist', 'fashionmnist', 'cifar10' ]
 #__algorithms__ = [ 'bm', 'dcbm', 'pabm-k', 'pabm-2k', 'pabm-ksquared', 'osc', 'sklearn', 'tcsc' ]
-__algorithms__ = ['bm', 'dcbm', 'pabm', 'osc', 'tcsc', 'gspc', 'sklearn' ]
+__algorithms__ = ['bm', 'dcbm', 'pabm', 'osc', 'tcsc', 'rtcsc', 'gspc', 'sklearn' ]
 
 
 """
+
 # =============================================================================
 # REPRODUCE RESULTS OF TABLE 1
 # =============================================================================
 
-algorithms = ['sbm', 'dcbm', 'pabm', 'osc', 'tcsc', 'rtcsc', 'gspc', 'sklearn' ]
-
+algorithms = ['sbm', 'dcbm', 'pabm', 'osc', 'tcsc', 'gspc', 'sklearn' ]
 dataset_names = [ 'politicalBlogs', 'liveJournal-top2', 'citeseer', 'cora', 'mnist', 'fashionmnist', 'cifar10' ]
-results = runExperiments( gml_dataset, algorithms = algorithms, saveResults = True, filename = 'real_data', nAverage = 5, verbose = True )
-
-
-df_statistics = pd.DataFrame(  )
-
-df_accuracy = pd.DataFrame( )
-df_ami = pd.DataFrame( )
-df_ari = pd.DataFrame( )
-df_time = pd.DataFrame( )
-
-for dataset_name in gml_datasets:
-    
-    print( dataset_name )
-    A, labels_true = datasets.getRealGraph( dataset_name , n = 10000 )
-    
-    
-    #G = readFromGml( dataset_name )
-    #labels_true = get_communities( G, community_label = 'community' )
-    n_clusters = len( set( labels_true ) )
-    #A = nx.adjacency_matrix( G )
-
-    graph_statistics = getGraphStatistics( nx.from_scipy_sparse_array( A ), n_clusters, dataset_name = dataset_name )
-    df_statistics = pd.concat( [ df_statistics, graph_statistics ] )
-        
-    predicted_clusterings, time_execution = getClusterings( A, n_clusters, algorithms = algorithms )
-    
-    accuracies = getClusteringMetrics( predicted_clusterings, labels_true, dataset_name = dataset_name, metric = 'accuracy' )
-    ami = getClusteringMetrics( predicted_clusterings, labels_true, dataset_name = dataset_name, metric = 'ami' )
-    ari = getClusteringMetrics( predicted_clusterings, labels_true, dataset_name = dataset_name, metric = 'ari' )
-    #cc = getClusteringMetrics( predicted_clusterings, labels_true, dataset_name = dataset_name, metric = 'correlation coefficient' )
-    
-    df_accuracy = pd.concat( [ df_accuracy, accuracies ] )
-    df_ami = pd.concat( [ df_ami, ami ] )
-    df_ari = pd.concat( [ df_ari, ari ] )
-    #df_cc = pd.concat( [ df_cc, cc ] )
-    
-    time_execution[ 'name' ] = dataset_name
-    time_execution = pd.DataFrame( data = [ time_execution ] )
-
-    df_time = pd.concat( [ df_time, time_execution ] )
-
-    
-df_accuracy.to_csv( 'gml_clusteringAccuracy.csv', index = False )
-df_ami.to_csv( 'gml_clusteringAMI.csv', index = False )
-df_ari.to_csv( 'gml_clusteringARI.csv', index = False )
-#df_cc.to_csv( 'gml_clustering_correlationCoeff.csv', index = False )
-df_time.to_csv( 'gml_executionTime.csv', index = False )
-
-df_statistics.to_csv( 'gml_graphStatistics.csv', index = False )
+results = runExperiments( dataset_names, algorithms = algorithms, saveResults = True, filename = 'real_data', nAverage = 5, verbose = True )
 
 """
 
@@ -92,60 +42,6 @@ def initialize_empty_dics( algorithms ):
     for algo in algorithms:
         res[ algo ] = [ ]
     return res 
-
-
-def runExperiments_old( dataset_names, algorithms = __algorithms__, saveResults = False, filename = 'gml', nAverage = 1 ):
-    df_statistics = pd.DataFrame(  )
-
-    df_accuracy = pd.DataFrame( )
-    df_ami = pd.DataFrame( )
-    df_ari = pd.DataFrame( )
-    df_cc = pd.DataFrame( )
-    df_time = pd.DataFrame( )
-
-    for dataset_name in dataset_names:
-        
-        print( dataset_name )
-        A, labels_true = datasets.getRealGraph( dataset_name , n = 10000 )
-        n_clusters = len( set( labels_true ) )
-
-        graph_statistics = getGraphStatistics( nx.from_scipy_sparse_array( A ), n_clusters, dataset_name = dataset_name )
-        df_statistics = pd.concat( [ df_statistics, graph_statistics ] )
-        
-        for i in range( nAverage ):
-            predicted_clusterings, time_execution = getClusterings( A, n_clusters, algorithms = algorithms )
-        
-            accuracies = getClusteringMetrics( predicted_clusterings, labels_true, dataset_name = dataset_name, metric = 'accuracy' )
-            ami = getClusteringMetrics( predicted_clusterings, labels_true, dataset_name = dataset_name, metric = 'ami' )
-            ari = getClusteringMetrics( predicted_clusterings, labels_true, dataset_name = dataset_name, metric = 'ari' )
-            #cc = getClusteringMetrics( predicted_clusterings, labels_true, dataset_name = dataset_name, metric = 'correlation coefficient' )
-        
-        df_accuracy = pd.concat( [ df_accuracy, accuracies ] )
-        df_ami = pd.concat( [ df_ami, ami ] )
-        df_ari = pd.concat( [ df_ari, ari ] )
-        #df_cc = pd.concat( [ df_cc, cc ] )
-        
-        time_execution[ 'name' ] = dataset_name
-        time_execution = pd.DataFrame( data = [ time_execution ] )
-
-        df_time = pd.concat( [ df_time, time_execution ] )
-
-    if saveResults:
-        print( 'Saving results...' )
-        df_accuracy.to_csv( filename + '_clusteringAccuracy.csv', index = False )
-        df_ami.to_csv( filename + '_clusteringAMI.csv', index = False )
-        df_ari.to_csv( filename + '_clusteringARI.csv', index = False )
-        df_time.to_csv( filename + '_executionTime.csv', index = False )
-        df_statistics.to_csv( filename + '_graphStatistics.csv', index = False )
-    
-    return {
-        'statistics' : df_statistics,
-        'accuracy' : df_accuracy,
-        'ami' : df_ami,
-        'ari' : df_ari,
-        'time' : df_time 
-    }
-
 
 
 def getClusterings( A, n_clusters, algorithms = __algorithms__, verbose = False ):
@@ -230,11 +126,9 @@ def runExperimentsSingleDataset( dataset_name, algorithms = __algorithms__, nAve
 
 
 
-
 def runExperiments( dataset_names, algorithms = __algorithms__, saveResults = False, filename = '', nAverage = 1, verbose = False ):
     df_statistics = pd.DataFrame(  )
 
-    
     df_accuracy_mean = pd.DataFrame( )
     df_accuracy_std = pd.DataFrame( )
     df_ari_mean = pd.DataFrame( )
@@ -275,7 +169,6 @@ def runExperiments( dataset_names, algorithms = __algorithms__, saveResults = Fa
         ami_std.update( results['ami_std'] )
         df_ami_std = pd.concat( [ df_ami_std, pd.DataFrame( data = [ ami_std ] ) ] )
 
-
         time_mean = {'name' : dataset_name }
         time_mean.update( results['execution_time_mean'] )
         df_time_mean = pd.concat( [ df_time_mean, pd.DataFrame( data = [ time_mean ] ) ] )
@@ -284,20 +177,19 @@ def runExperiments( dataset_names, algorithms = __algorithms__, saveResults = Fa
         time_std.update( results['execution_time_std'] )
         df_time_std = pd.concat( [ df_time_std, pd.DataFrame( data = [ time_std ] ) ] )
         
-        
 
     if saveResults:
         print( 'Saving results...' )
-        df_accuracy_mean.to_csv( filename + '_accuracy_mean_nAverage_' + str(nAverage) + '.csv', index = False )
-        df_accuracy_std.to_csv( filename + '_accuracy_std_ ' + str(nAverage) + '.csv', index = False )
-        df_ami_mean.to_csv( filename + '_AMI_mean_' + str(nAverage) + '.csv', index = False )
-        df_ami_std.to_csv( filename + '_AMI_std_' + str(nAverage) + '.csv', index = False )
-        df_ari_mean.to_csv( filename + '_ARI_mean_' + str(nAverage) + '.csv', index = False )
-        df_ari_std.to_csv( filename + '_ARI_std_' + str(nAverage) + '.csv', index = False )
-        df_time_mean.to_csv( filename + '_time_mean_' + str(nAverage) + '.csv', index = False )
-        df_time_std.to_csv( filename + '_time_std_' + str(nAverage) + '.csv', index = False )
+        df_accuracy_mean.to_csv( 'results/' + filename + '_accuracy_mean_nAverage_' + str(nAverage) + '.csv', index = False )
+        df_accuracy_std.to_csv( 'results/' + filename + '_accuracy_std_ ' + str(nAverage) + '.csv', index = False )
+        df_ami_mean.to_csv( 'results/' + filename + '_AMI_mean_' + str(nAverage) + '.csv', index = False )
+        df_ami_std.to_csv( 'results/' + filename + '_AMI_std_' + str(nAverage) + '.csv', index = False )
+        df_ari_mean.to_csv( 'results/' + filename + '_ARI_mean_' + str(nAverage) + '.csv', index = False )
+        df_ari_std.to_csv( 'results/' + filename + '_ARI_std_' + str(nAverage) + '.csv', index = False )
+        df_time_mean.to_csv( 'results/' + filename + '_time_mean_' + str(nAverage) + '.csv', index = False )
+        df_time_std.to_csv( 'results/' + filename + '_time_std_' + str(nAverage) + '.csv', index = False )
 
-        df_statistics.to_csv( filename + '_graphStatistics.csv', index = False )
+        df_statistics.to_csv( 'results/' + filename + '_graphStatistics.csv', index = False )
     
     return {
         'statistics' : df_statistics,
@@ -324,7 +216,6 @@ def getGraphStatistics( G, n_clusters, dataset_name = '' ):
     
     degrees = [ deg[1] for deg in G.degree() ]
     graph_statistics[ 'std-degree' ] = np.std( degrees )
-
     #graph_statistics[ 'diameter' ].append( nx.diameter( G ) )
     #graph_statistics[ '1-shell' ].append( nx.k_shell(G, k=1).number_of_nodes( ) )
     return pd.DataFrame( data = [ graph_statistics ] )
@@ -338,6 +229,4 @@ def getClusteringMetrics( predicted_clusterings, labels_true, dataset_name = 'da
     for algo in predicted_clusterings.keys( ) :
         clustering_results[ algo ] = utils.computePartitionMetric( labels_true, predicted_clusterings[ algo ], metric = metric )
     
-    return clustering_results #pd.DataFrame( data = [ clustering_results ] )
-
-
+    return clustering_results 

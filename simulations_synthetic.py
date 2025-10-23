@@ -174,7 +174,6 @@ def initialize_empty_dics( algorithms ):
     return res 
 
 
-
 def generate_P_for_different_scenarios( scenario, sizes, edge_density, xi, extra_parameter, min_value = 0.05, max_value = 5 ):
     n = sum(sizes)
     n_clusters = len( sizes )

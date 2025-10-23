@@ -8,10 +8,6 @@ import numpy as np
 import scipy as sp
 from sklearn.cluster import KMeans, SpectralClustering
 
-from sklearn_extra.cluster import KMedoids
-
-from sklearn.metrics.pairwise import pairwise_distances
-
 import utils as utils
 import selfrepresentation as selfrepresentation
 
@@ -140,17 +136,8 @@ def spectralClustering_dcbm( A , n_clusters, version ='full', embedding_clusteri
             hatP_rowNormalized[i,:] = hatP[i,:] / np.linalg.norm( hatP[i,:], ord = 1)
     
     if embedding_clustering == 'kmeans':
-        print('I am using kmeans')
         z = KMeans(n_clusters = n_clusters, n_init = 'auto' ).fit_predict( hatP_rowNormalized ) + np.ones( n )        
-    
-    elif embedding_clustering.lower() == 'kmedoids':
-        #distances = sp.spatial.distance_matrix( hatP_rowNormalized.T, hatP_rowNormalized.T, p=1 )
-        distances = pairwise_distances( hatP_rowNormalized, metric = 'l1' )
-        for i in range( n ):
-            distances[i,:] *= np.linalg.norm( hatP[i,:], ord = 1)
 
-        z = KMedoids(n_clusters=n_clusters, metric = 'precomputed').fit_predict( distances ) + np.ones( n )    
-    
     else:
         raise TypeError( 'This clustering method is not implemented' )
     
@@ -158,6 +145,8 @@ def spectralClustering_dcbm( A , n_clusters, version ='full', embedding_clusteri
 
 """
 import sklearn_extra.cluster as sklearn_extra
+from sklearn.metrics.pairwise import pairwise_distances
+
 start = time.time()
 essai = pairwise_distances( hatP_rowNormalized, metric = 'l1' )
 print("distance computations took: %.2f ms" % ((time.time() - start)*1000))
@@ -180,7 +169,17 @@ kmedians_instance = kmedians(hatP_rowNormalized, centers)
 kmedians_instance.process()
 clusters = kmedians_instance.get_clusters()
 
+
+    elif embedding_clustering.lower() == 'kmedoids':
+        #distances = sp.spatial.distance_matrix( hatP_rowNormalized.T, hatP_rowNormalized.T, p=1 )
+        distances = pairwise_distances( hatP_rowNormalized, metric = 'l1' )
+        for i in range( n ):
+            distances[i,:] *= np.linalg.norm( hatP[i,:], ord = 1)
+
+        z = KMedoids(n_clusters=n_clusters, metric = 'precomputed').fit_predict( distances ) + np.ones( n )    
+
 """
+
 
 def spectralClustering_pabm( A, n_clusters, version = 'subspace', number_eigenvectors = 'k-squared', verbose = True ):
     """ Perform spectral clustering for a PABM

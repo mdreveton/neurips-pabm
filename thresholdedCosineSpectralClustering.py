@@ -70,7 +70,7 @@ def ThresholdedCosineSpectralClustering( A, n_clusters, number_eigenvectors = 'k
         
     vals, vecs = sp.sparse.linalg.eigsh( A.astype(float), k = number_eigenvectors, which = 'LM' )
     
-    #tau = np.abs( np.cos( vecs @ vecs.T ) ) #This version is slightly different that in the original paper, yet it also works well in practice (on real datasets it even appears to be better)
+    #tau = np.abs( np.cos( vecs @ vecs.T ) ) #This version is slightly different that in the original paper, yet it also works well in practice (on the image datasets it even appears to be better)
     tau = np.abs( cosine_similarity(vecs) ) - np.eye(n) #taking out the diagonal seems to dramatically improve the performance. 
     hist, bin_edges = np.histogram(tau, bins = 'auto', density=True)
     difference = [ hist[t+1] - hist[t] for t in range( len(hist) - 1 ) ]
