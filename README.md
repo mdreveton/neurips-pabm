@@ -1,7 +1,7 @@
 This file contains the experiments for the paper
 Optimal Graph Clustering without Edge Density Signals
 
-appearing at NeurIPS 2026. 
+appearing at NeurIPS 2025. 
 
 Authors: Maximilien Dreveton, Siyu (Elaine) Liu, Matthias Grossglauser, Patrick Thiran.
 Code by Maximilien Dreveton. 
